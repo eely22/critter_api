@@ -1,0 +1,11 @@
+{
+    "prod": {
+        "app_function": "critter_api.app", 
+        "aws_region": "us-west-2", 
+        "profile_name": "default", 
+        "project_name": "critter-api", 
+        "runtime": "python2.7", 
+        "s3_bucket": "zappa-critter-api",
+        "timeout_seconds": 30
+    }
+}
