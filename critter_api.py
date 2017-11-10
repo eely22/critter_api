@@ -3,8 +3,11 @@ import time
 import json
 import boto3
 from boto3.dynamodb.conditions import Key
+import requests
 
 from flask import Flask, request, session, g, url_for, Response, request, jsonify
+
+particle_api_url = 'https://api.particle.io'
 
 # create our app
 app = Flask(__name__)
@@ -24,6 +27,24 @@ app.config.update(dict(
 #default return type to JSON, since this is really what we use
 class JSONResponse(Response):
     default_mimetype = 'application/json'
+
+# will return 400 when called
+@app.errorhandler(400)
+def bad_request(error=None):
+        """
+        Handle 400 cases
+        :param error: String, the error to return
+        :return:
+        """
+        message = {
+            'status': 400,
+            'error': 'BadRequest: ' + request.url,
+            "message": error if error is not None else '',
+        }
+        resp = jsonify(message)
+        resp.status_code = 400
+
+        return resp
 
 # will return 404 when called
 @app.errorhandler(404)
@@ -66,6 +87,44 @@ def internal_error(error=None):
 @app.route('/critter/version')
 def version():
     return json.dumps({'version': api_version})
+
+@app.route('/critter/devices')
+def devices():
+    try:
+        params = get_payload(request)
+        token = params['token']
+    except Exception as ex:
+        return bad_request()
+
+    try:
+        devices = []
+        response = requests.get(particle_api_url+'/v1/devices?access_token='+token)
+        for particle_device in response.json():
+
+            # it must be named properly or there is no point in continuing
+            if not particle_device['name'].startswith("critter"):
+                continue
+
+            # get the device from the dynamo table
+            dynamodb = boto3.resource('dynamodb')
+            events_table = dynamodb.Table("critter_devices")
+            record = events_table.get_item(Key={"device_id": particle_device['id']})
+
+            # if not found, continue
+            if "Item" not in record:
+                continue
+
+            # otherwise, add it to the list
+            device = record["Item"]
+            if 'last_reported_voltage' in device:
+                device['last_reported_voltage'] = float(device['last_reported_voltage'])
+
+            device['online'] = particle_device['connected']
+            devices.append(device)
+
+        return JSONResponse(json.dumps(devices))
+    except Exception as ex:
+        return internal_error(ex.message)
 
 @app.route('/critter/device/<string:device_id>')
 def device(device_id):

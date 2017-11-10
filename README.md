@@ -7,6 +7,32 @@ information about specific devices
 ## Endpoint
 All functions use the common endpoint https://api.banc.io
 
+## Devices
+/critter/devices?token={token}
+
+### GET
+Get all critter devices, along with particle information. Must be handed a Particle token
+
+#### Response:
+Code | Description
+--- | ---
+200| Success
+405| Bad Request
+500| Server Error
+
+If found, a list like the following will be handed back
+```
+[
+    {
+        "device_id": device_id,
+        "device_name": device_name,
+        "last_reported": last_reported_timestamp,
+        "last_reported_voltage": last_reported_voltage
+        "online": online
+    },
+]
+```
+
 ## Device
 /critter/device/{device id}
 
